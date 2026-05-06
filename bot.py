@@ -2,7 +2,7 @@ import os
 import json
 from datetime import datetime
 from telegram import Update
-from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 DATA_FILE = "vending_data.json"
@@ -11,16 +11,16 @@ def load_data():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {"expenses":[],"incomes":[],"machines":[{"name":"מכונה 1","status":"תקינה"}]}
+    return {"expenses":[],"incomes":[]}
 
 def save_data(data):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-async def start(update, ctx):
-    await update.message.reply_text("👋 שלום!\n\nשלח לי:\n💸 הוצ 200 תחזוקה\n💰 הכנ 500 מכונה1\n📊 סיכום\n🔧 מכונה1 תקלה")
+async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("👋 שלום!\n\nשלח לי:\n💸 הוצ 200 תחזוקה\n💰 הכנ 500 מכונה1\n📊 סיכום")
 
-async def handle(update, ctx):
+async def handle(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     data = load_data()
     today = datetime.now().strftime("%Y-%m-%d")
@@ -54,13 +54,13 @@ async def handle(update, ctx):
         ti = sum(i["amount"] for i in data["incomes"])
         te = sum(e["amount"] for e in data["expenses"])
         await update.message.reply_text(
-            f"📊 סיכום החודש:\n💰 הכנסות: {mi} ₪\n💸 הוצאות: {me} ₪\n📈 רווח החודש: {mi-me} ₪\n\n📊 סה״כ כולל:\n📈 רווח כולל: {ti-te} ₪"
+            f"📊 סיכום החודש:\n💰 הכנסות: {mi} ₪\n💸 הוצאות: {me} ₪\n📈 רווח: {mi-me} ₪\n\n📈 רווח כולל: {ti-te} ₪"
         )
     else:
         await update.message.reply_text("שלח:\n💸 הוצ 200 תחזוקה\n💰 הכנ 500 מכונה1\n📊 סיכום")
 
 def main():
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle))
     print("בוט פועל!")
