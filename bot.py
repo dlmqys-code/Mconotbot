@@ -2,69 +2,51 @@ import os
 import json
 from datetime import datetime
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
+from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
 
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
+TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 DATA_FILE = "vending_data.json"
 
-def load_data():
-    if os.path.exists(DATA_FILE):
+def load():
+    try:
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {"expenses":[],"incomes":[]}
+    except:
+        return {"expenses":[],"incomes":[]}
 
-def save_data(data):
+def save(data):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(data, f, ensure_ascii=False)
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 שלום!\n\nשלח לי:\n💸 הוצ 200 תחזוקה\n💰 הכנ 500 מכונה1\n📊 סיכום")
+    await update.message.reply_text("👋 שלום!\nהוצ 200 תחזוקה\nהכנ 500\nסיכום")
 
-async def handle(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
-    data = load_data()
+async def msg(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    t = update.message.text
+    data = load()
     today = datetime.now().strftime("%Y-%m-%d")
-    month = datetime.now().strftime("%Y-%m")
-
-    if text.startswith("הוצ"):
-        parts = text.split()
-        amount = next((p for p in parts if p.isdigit()), None)
-        if amount:
-            note = " ".join(parts[2:]) if len(parts) > 2 else ""
-            data["expenses"].append({"amount":int(amount),"note":note,"date":today})
-            save_data(data)
-            await update.message.reply_text(f"✅ רשמתי הוצאה של {amount} ₪")
-        else:
-            await update.message.reply_text("❌ כתוב: הוצ 200 תחזוקה")
-
-    elif text.startswith("הכנ"):
-        parts = text.split()
-        amount = next((p for p in parts if p.isdigit()), None)
-        if amount:
-            note = " ".join(parts[2:]) if len(parts) > 2 else ""
-            data["incomes"].append({"amount":int(amount),"note":note,"date":today})
-            save_data(data)
-            await update.message.reply_text(f"✅ רשמתי הכנסה של {amount} ₪")
-        else:
-            await update.message.reply_text("❌ כתוב: הכנ 500 מכונה1")
-
-    elif "סיכום" in text:
-        mi = sum(i["amount"] for i in data["incomes"] if i["date"].startswith(month))
-        me = sum(e["amount"] for e in data["expenses"] if e["date"].startswith(month))
-        ti = sum(i["amount"] for i in data["incomes"])
-        te = sum(e["amount"] for e in data["expenses"])
-        await update.message.reply_text(
-            f"📊 סיכום החודש:\n💰 הכנסות: {mi} ₪\n💸 הוצאות: {me} ₪\n📈 רווח: {mi-me} ₪\n\n📈 רווח כולל: {ti-te} ₪"
-        )
+    month = today[:7]
+    if t.startswith("הוצ"):
+        nums = [x for x in t.split() if x.isdigit()]
+        if nums:
+            data["expenses"].append({"amount":int(nums[0]),"note":t,"date":today})
+            save(data)
+            await update.message.reply_text(f"✅ הוצאה {nums[0]} ₪")
+    elif t.startswith("הכנ"):
+        nums = [x for x in t.split() if x.isdigit()]
+        if nums:
+            data["incomes"].append({"amount":int(nums[0]),"note":t,"date":today})
+            save(data)
+            await update.message.reply_text(f"✅ הכנסה {nums[0]} ₪")
+    elif "סיכום" in t:
+        mi = sum(i["amount"] for i in data["incomes"] if i["date"][:7]==month)
+        me = sum(e["amount"] for e in data["expenses"] if e["date"][:7]==month)
+        await update.message.reply_text(f"📊 החודש:\n💰 {mi} ₪\n💸 {me} ₪\n📈 {mi-me} ₪")
     else:
-        await update.message.reply_text("שלח:\n💸 הוצ 200 תחזוקה\n💰 הכנ 500 מכונה1\n📊 סיכום")
-
-def main():
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle))
-    print("בוט פועל!")
-    app.run_polling()
+        await update.message.reply_text("הוצ 200\nהכנ 500\nסיכום")
 
 if __name__ == "__main__":
-    main()
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, msg))
+    app.run_polling()
